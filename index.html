@@ -1,0 +1,745 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Perfil Comportamental DISC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #a5f3fc, #06b6d4);
+        }
+        .adjective {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .adjective:hover {
+            transform: scale(1.05);
+            background-color: #fef3c7;
+        }
+        .adjective.selected {
+            background: linear-gradient(135deg, #34d399, #059669);
+            color: white;
+            border-color: #047857;
+        }
+        .fill {
+            transition: width 1s ease-in-out;
+            position: relative;
+            border-radius: 9999px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .fill::after {
+            content: attr(data-percent);
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            animation: pulse 2s infinite;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #4b5563, #6b7280);
+        }
+        .btn-result {
+            background: linear-gradient(135deg, #ec4899, #be185d);
+        }
+        .btn-result:hover {
+            background: linear-gradient(135deg, #be185d, #ec4899);
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+        }
+        .btn-start:hover {
+            background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .input-icon {
+            position: relative;
+        }
+        .input-icon svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            color: #4b5563;
+        }
+        .input-icon input {
+            padding-left: 40px;
+        }
+        .signature {
+            font-family: 'Dancing Script', cursive;
+            color: #0ea5e9;
+        }
+        .score-d .fill {
+            background: #ef4444;
+        }
+        .score-i .fill {
+            background: #f59e0b;
+        }
+        .score-s .fill {
+            background: #3b82f6;
+        }
+        .score-c .fill {
+            background: #10b981;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl p-8">
+        <h2 class="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-blue-600 mb-2">Impulso Coaching</h2>
+        <h1 class="text-5xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500 mb-2">Teste de Perfil Comportamental DISC</h1>
+        <p class="text-center text-gray-600 mb-6">A Mudança Pode Acontecer Em Um Instante</p>
+
+        <div id="form-section">
+            <div class="bg-gradient-to-r from-blue-100 to-teal-100 p-6 rounded-lg mb-6 shadow-md">
+                <p class="text-xl font-semibold text-gray-800 mb-4">Dados Pessoais</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div class="input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <input type="text" id="name" placeholder="Nome" class="border border-teal-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gradient-to-r from-white to-teal-50">
+                    </div>
+                    <div class="input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <input type="number" id="age" placeholder="Idade" class="border border-teal-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gradient-to-r from-white to-teal-50">
+                    </div>
+                    <div class="input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <input type="text" id="occupation" placeholder="Profissão" class="border border-teal-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gradient-to-r from-white to-teal-50">
+                    </div>
+                </div>
+                <div class="input-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <input type="email" id="email" placeholder="Email" class="border border-teal-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gradient-to-r from-white to-teal-50">
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button onclick="startTest()" class="btn-start text-white px-6 py-3 rounded-lg transition shadow-md">Iniciar Teste</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="test-section" class="hidden">
+            <div class="bg-gradient-to-r from-blue-100 to-teal-100 p-6 rounded-lg mb-6 shadow-md">
+                <p class="text-xl font-semibold text-gray-800">Dicas para o teste:</p>
+                <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                    <li>Não há resultado bom ou ruim, por isso, seja sincera(o).</li>
+                    <li>Escolha um momento tranquilo para fazer o teste.</li>
+                    <li>Não pense muito, a primeira resposta geralmente será a mais correta.</li>
+                    <li>Responda pensando em quem você é e não em quem gostaria de ser.</li>
+                </ol>
+            </div>
+            <p class="text-center text-gray-600 mb-6 text-lg">Selecione o adjetivo que melhor descreve você! (Escolha apenas um por pergunta)</p>
+
+            <div id="questions">
+                <div class="question active" data-q="1">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">01/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q1" value="D" class="hidden"><label class="block font-medium">Exigente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q1" value="I" class="hidden"><label class="block font-medium">Entusiástico</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q1" value="S" class="hidden"><label class="block font-medium">Amigável</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q1" value="C" class="hidden"><label class="block font-medium">Precisão</label></div>
+                    </div>
+                    <div class="flex justify-end mt-6">
+                        <button onclick="nextQuestion(1)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="2">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">02/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q2" value="D" class="hidden"><label class="block font-medium">Decidido</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q2" value="I" class="hidden"><label class="block font-medium">Persuasivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q2" value="S" class="hidden"><label class="block font-medium">Paciente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q2" value="C" class="hidden"><label class="block font-medium">Diplomático</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(2)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(2)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="3">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">03/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q3" value="D" class="hidden"><label class="block font-medium">Aventureiro</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q3" value="I" class="hidden"><label class="block font-medium">Estimulante</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q3" value="S" class="hidden"><label class="block font-medium">Familiar</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q3" value="C" class="hidden"><label class="block font-medium">Refinado</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(3)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(3)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="4">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">04/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q4" value="D" class="hidden"><label class="block font-medium">Franko</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q4" value="I" class="hidden"><label class="block font-medium">Animado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q4" value="S" class="hidden"><label class="block font-medium">Cooperativo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q4" value="C" class="hidden"><label class="block font-medium">Investigador</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(4)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(4)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="5">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">05/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q5" value="D" class="hidden"><label class="block font-medium">Ambicioso</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q5" value="I" class="hidden"><label class="block font-medium">Convencente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q5" value="S" class="hidden"><label class="block font-medium">Estável</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q5" value="C" class="hidden"><label class="block font-medium">Consistente</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(5)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(5)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="6">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">06/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q6" value="D" class="hidden"><label class="block font-medium">Independente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q6" value="I" class="hidden"><label class="block font-medium">Inspirador</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q6" value="S" class="hidden"><label class="block font-medium">Leal</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q6" value="C" class="hidden"><label class="block font-medium">Observador</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(6)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(6)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="7">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">07/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q7" value="D" class="hidden"><label class="block font-medium">Autoritário</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q7" value="I" class="hidden"><label class="block font-medium">Otimizador</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q7" value="S" class="hidden"><label class="block font-medium">Escuta</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q7" value="C" class="hidden"><label class="block font-medium">Analítico</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(7)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(7)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="8">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">08/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q8" value="D" class="hidden"><label class="block font-medium">Determinado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q8" value="I" class="hidden"><label class="block font-medium">Carismático</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q8" value="S" class="hidden"><label class="block font-medium">Confiante</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q8" value="C" class="hidden"><label class="block font-medium">Cauteloso</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(8)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(8)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="9">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">09/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q9" value="D" class="hidden"><label class="block font-medium">Direto</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q9" value="I" class="hidden"><label class="block font-medium">Gregário</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q9" value="S" class="hidden"><label class="block font-medium">Calmo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q9" value="C" class="hidden"><label class="block font-medium">Objetivo</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(9)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(9)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="10">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">10/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q10" value="D" class="hidden"><label class="block font-medium">Impaciente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q10" value="I" class="hidden"><label class="block font-medium">Sociável</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q10" value="S" class="hidden"><label class="block font-medium">Persistente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q10" value="C" class="hidden"><label class="block font-medium">Sistemático</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(10)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(10)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="11">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">11/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q11" value="D" class="hidden"><label class="block font-medium">Competitivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q11" value="I" class="hidden"><label class="block font-medium">Alerta</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q11" value="S" class="hidden"><label class="block font-medium">Previsível</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q11" value="C" class="hidden"><label class="block font-medium">Perfeccionista</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(11)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(11)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="12">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">12/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q12" value="D" class="hidden"><label class="block font-medium">Rápido</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q12" value="I" class="hidden"><label class="block font-medium">Versátil</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q12" value="S" class="hidden"><label class="block font-medium">Prático</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q12" value="C" class="hidden"><label class="block font-medium">Exato</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(12)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(12)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="13">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">13/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q13" value="D" class="hidden"><label class="block font-medium">Arrogante</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q13" value="I" class="hidden"><label class="block font-medium">Impulsivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q13" value="S" class="hidden"><label class="block font-medium">Possessivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q13" value="C" class="hidden"><label class="block font-medium">Rígido</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(13)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(13)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="14">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">14/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q14" value="D" class="hidden"><label class="block font-medium">Vigoroso</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q14" value="I" class="hidden"><label class="block font-medium">Confiante</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q14" value="S" class="hidden"><label class="block font-medium">Relaxado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q14" value="C" class="hidden"><label class="block font-medium">Consciente</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(14)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(14)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="15">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">15/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q15" value="D" class="hidden"><label class="block font-medium">Controlador</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q15" value="I" class="hidden"><label class="block font-medium">Entretido</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q15" value="S" class="hidden"><label class="block font-medium">Tranquilo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q15" value="C" class="hidden"><label class="block font-medium">Reservado</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(15)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(15)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="16">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">16/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q16" value="D" class="hidden"><label class="block font-medium">Inquieto</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q16" value="I" class="hidden"><label class="block font-medium">Popular</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q16" value="S" class="hidden"><label class="block font-medium">Simpático</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q16" value="C" class="hidden"><label class="block font-medium">Autônomo</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(16)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(16)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="17">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">17/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q17" value="D" class="hidden"><label class="block font-medium">Desafiador</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q17" value="I" class="hidden"><label class="block font-medium">Alegre</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q17" value="S" class="hidden"><label class="block font-medium">Generoso</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q17" value="C" class="hidden"><label class="block font-medium">Crítico</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(17)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(17)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="18">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">18/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q18" value="D" class="hidden"><label class="block font-medium">Calculista</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q18" value="I" class="hidden"><label class="block font-medium">Engraçado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q18" value="S" class="hidden"><label class="block font-medium">Humilde</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q18" value="C" class="hidden"><label class="block font-medium">Questionador</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(18)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(18)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="19">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">19/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q19" value="D" class="hidden"><label class="block font-medium">Assertivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q19" value="I" class="hidden"><label class="block font-medium">Optimista</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q19" value="S" class="hidden"><label class="block font-medium">Respeitoso</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q19" value="C" class="hidden"><label class="block font-medium">Detalhista</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(19)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(19)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="20">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">20/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q20" value="D" class="hidden"><label class="block font-medium">Pioneiro</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q20" value="I" class="hidden"><label class="block font-medium">Acolhedor</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q20" value="S" class="hidden"><label class="block font-medium">Equilibrado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q20" value="C" class="hidden"><label class="block font-medium">Organizado</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(20)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(20)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="21">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">21/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q21" value="D" class="hidden"><label class="block font-medium">Robusto</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q21" value="I" class="hidden"><label class="block font-medium">Adaptável</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q21" value="S" class="hidden"><label class="block font-medium">Conciliador</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q21" value="C" class="hidden"><label class="block font-medium">Preciso</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(21)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(21)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="22">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">22/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q22" value="D" class="hidden"><label class="block font-medium">Proativo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q22" value="I" class="hidden"><label class="block font-medium">Enérgico</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q22" value="S" class="hidden"><label class="block font-medium">Suportivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q22" value="C" class="hidden"><label class="block font-medium">Moderado</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(22)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(22)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="23">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">23/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q23" value="D" class="hidden"><label class="block font-medium">Tenaz</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q23" value="I" class="hidden"><label class="block font-medium">Expressivo</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q23" value="S" class="hidden"><label class="block font-medium">Deliberado</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q23" value="C" class="hidden"><label class="block font-medium">Factível</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(23)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="nextQuestion(23)" class="btn-primary text-white px-6 py-3 rounded-lg transition shadow-md">Próxima</button>
+                    </div>
+                </div>
+                <div class="question hidden" data-q="24">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">24/24</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q24" value="D" class="hidden"><label class="block font-medium">Dominante</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q24" value="I" class="hidden"><label class="block font-medium">Influente</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q24" value="S" class="hidden"><label class="block font-medium">Estável</label></div>
+                        <div class="adjective border border-gray-300 rounded-lg p-4 text-center cursor-pointer bg-yellow-50"><input type="radio" name="q24" value="C" class="hidden"><label class="block font-medium">Conforme</label></div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevQuestion(24)" class="btn-secondary text-white px-6 py-3 rounded-lg transition shadow-md">Anterior</button>
+                        <button onclick="showResult()" class="btn-result text-white px-6 py-3 rounded-lg transition shadow-md">Ver Resultado</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="result" class="hidden mt-6">
+                <h2 class="text-3xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500 mb-4">Seu Resultado</h2>
+                <div id="scores" class="space-y-6">
+                    <div class="score-d">
+                        <p class="text-gray-800 font-semibold text-lg">DOMINÂNCIA (Colérico): <span id="scoreD">0%</span></p>
+                        <div class="bg-gray-200 h-8 rounded-full overflow-hidden shadow-md"><div class="fill bg-red-500 h-full" style="width: 0%" data-percent="0%"></div></div>
+                    </div>
+                    <div class="score-i">
+                        <p class="text-gray-800 font-semibold text-lg">INFLUÊNCIA (Sanguíneo): <span id="scoreI">0%</span></p>
+                        <div class="bg-gray-200 h-8 rounded-full overflow-hidden shadow-md"><div class="fill bg-orange-500 h-full" style="width: 0%" data-percent="0%"></div></div>
+                    </div>
+                    <div class="score-s">
+                        <p class="text-gray-800 font-semibold text-lg">ESTABILIDADE (Fleumático): <span id="scoreS">0%</span></p>
+                        <div class="bg-gray-200 h-8 rounded-full overflow-hidden shadow-md"><div class="fill bg-blue-500 h-full" style="width: 0%" data-percent="0%"></div></div>
+                    </div>
+                    <div class="score-c">
+                        <p class="text-gray-800 font-semibold text-lg">CONFORMIDADE (Melancólico): <span id="scoreC">0%</span></p>
+                        <div class="bg-gray-200 h-8 rounded-full overflow-hidden shadow-md"><div class="fill bg-green-500 h-full" style="width: 0%" data-percent="0%"></div></div>
+                    </div>
+                </div>
+                <p class="text-4xl font-extrabold text-gray-800 mt-6 text-center shadow-md">Perfil Predominante: <span id="dominant" class="text-teal-600"></span></p>
+                <div class="bg-gradient-to-r from-blue-100 to-teal-100 p-6 rounded-lg mt-6 shadow-md">
+                    <p class="text-xl font-semibold text-gray-800 mb-2">O que é o DISC?</p>
+                    <p class="text-gray-700">O DISC® é uma ferramenta de avaliação comportamental validada cientificamente, desenvolvida para revelar como você se comporta no dia a dia, especialmente em ambientes de trabalho, relacionamentos e liderança. Não é um teste de "personalidade fixa", mas um mapa dinâmico de estilos comportamentais que ajuda a melhorar a comunicação, a produtividade e o autoconhecimento. Usado por mais de 40 milhões de pessoas globalmente, o DISC é um acrônimo para quatro estilos principais de comportamento observáveis:</p>
+                    <ul class="list-disc list-inside text-gray-700 mt-2">
+                        <li><strong>D (Dominância):</strong> Fogo, Colérico, Competitivo, Executor</li>
+                        <li><strong>I (Influência):</strong> Ar, Sanguíneo, Sociável, Persuasivo</li>
+                        <li><strong>S (Estabilidade):</strong> Água, Fleumático, Sensitivo, Estabilidade</li>
+                        <li><strong>C (Conformidade):</strong> Terra, Melancólico, Analítico, Conformidade</li>
+                    </ul>
+                </div>
+                <p class="text-right mt-6 text-2xl signature">Rogério Braga - impulsoflow@gmail.com</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentQ = 1;
+        const totalQ = 24;
+
+        // Inicialize o EmailJS com seu User ID
+        emailjs.init("YOUR_EMAILJS_USER_ID"); // Substitua pelo seu userID do EmailJS
+
+        function startTest() {
+            const name = document.getElementById('name').value.trim();
+            const age = document.getElementById('age').value.trim();
+            const occupation = document.getElementById('occupation').value.trim();
+            const email = document.getElementById('email').value.trim();
+            if (name && age && occupation && email) {
+                document.getElementById('form-section').classList.add('hidden');
+                document.getElementById('test-section').classList.remove('hidden');
+                updateSelection(1);
+            } else {
+                alert('Por favor, preencha todos os campos antes de iniciar o teste.');
+            }
+        }
+
+        function updateSelection(q) {
+            const question = document.querySelector(`[data-q="${q}"]`);
+            const adjectives = question.querySelectorAll('.adjective');
+            adjectives.forEach(adj => {
+                const radio = adj.querySelector('input');
+                adj.classList.toggle('selected', radio.checked);
+            });
+        }
+
+        function nextQuestion(q) {
+            if (document.querySelector(`input[name="q${q}"]:checked`)) {
+                document.querySelector(`[data-q="${q}"]`).classList.add('hidden');
+                document.querySelector(`[data-q="${q}"]`).classList.remove('active');
+                currentQ = q + 1;
+                if (currentQ <= totalQ) {
+                    document.querySelector(`[data-q="${currentQ}"]`).classList.remove('hidden');
+                    document.querySelector(`[data-q="${currentQ}"]`).classList.add('active');
+                    updateSelection(currentQ);
+                }
+            } else {
+                alert('Por favor, selecione um adjetivo antes de continuar.');
+            }
+        }
+
+        function prevQuestion(q) {
+            document.querySelector(`[data-q="${q}"]`).classList.add('hidden');
+            document.querySelector(`[data-q="${q}"]`).classList.remove('active');
+            currentQ = q - 1;
+            document.querySelector(`[data-q="${currentQ}"]`).classList.remove('hidden');
+            document.querySelector(`[data-q="${currentQ}"]`).classList.add('active');
+            updateSelection(currentQ);
+        }
+
+        async function showResult() {
+            if (document.querySelector(`input[name="q${totalQ}"]:checked`)) {
+                let scores = { D: 0, I: 0, S: 0, C: 0 };
+                for (let i = 1; i <= totalQ; i++) {
+                    const selected = document.querySelector(`input[name="q${i}"]:checked`);
+                    if (selected) scores[selected.value]++;
+                }
+                const total = totalQ;
+                Object.keys(scores).forEach(k => scores[k] = Math.round((scores[k] / total) * 100));
+
+                const maxScore = Math.max(...Object.values(scores));
+                const dominant = Object.keys(scores).find(k => scores[k] === maxScore);
+
+                document.getElementById('questions').classList.add('hidden');
+                document.getElementById('result').classList.remove('hidden');
+
+                document.getElementById('scoreD').textContent = `${scores.D}%`;
+                document.getElementById('scoreI').textContent = `${scores.I}%`;
+                document.getElementById('scoreS').textContent = `${scores.S}%`;
+                document.getElementById('scoreC').textContent = `${scores.C}%`;
+
+                document.querySelector(`.score-d .fill`).style.width = `${scores.D}%`;
+                document.querySelector(`.score-d .fill`).setAttribute('data-percent', `${scores.D}%`);
+                document.querySelector(`.score-i .fill`).style.width = `${scores.I}%`;
+                document.querySelector(`.score-i .fill`).setAttribute('data-percent', `${scores.I}%`);
+                document.querySelector(`.score-s .fill`).style.width = `${scores.S}%`;
+                document.querySelector(`.score-s .fill`).setAttribute('data-percent', `${scores.S}%`);
+                document.querySelector(`.score-c .fill`).style.width = `${scores.C}%`;
+                document.querySelector(`.score-c .fill`).setAttribute('data-percent', `${scores.C}%`);
+
+                document.getElementById('dominant').textContent = dominant;
+
+                // Gerar e enviar PDF
+                await generateAndSendPDF();
+            } else {
+                alert('Por favor, responda a última pergunta antes de ver o resultado.');
+            }
+        }
+
+        async function generateAndSendPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const name = document.getElementById('name').value;
+            const age = document.getElementById('age').value;
+            const occupation = document.getElementById('occupation').value;
+            const email = document.getElementById('email').value;
+            const dominant = document.getElementById('dominant').textContent;
+
+            // Adicionar título
+            doc.setFontSize(16);
+            doc.text('Teste de Perfil Comportamental DISC - Impulso Coaching', 20, 20);
+
+            // Adicionar dados pessoais de forma compacta
+            doc.setFontSize(10);
+            doc.text(`Nome: ${name}  |  Idade: ${age}  |  Profissão: ${occupation}  |  Email: ${email}`, 20, 30);
+
+            // Adicionar explicação do DISC
+            doc.setFontSize(12);
+            doc.text('O que é o DISC?', 20, 40);
+            doc.setFontSize(10);
+            doc.text('O DISC® é uma ferramenta de avaliação comportamental validada cientificamente, desenvolvida para revelar como você se comporta no dia a dia, especialmente em ambientes de trabalho, relacionamentos e liderança. Não é um teste de "personalidade fixa", mas um mapa dinâmico de estilos comportamentais que ajuda a melhorar a comunicação, a produtividade e o autoconhecimento. Usado por mais de 40 milhões de pessoas globalmente, o DISC é um acrônimo para quatro estilos principais de comportamento observáveis:', 20, 50, { maxWidth: 170 });
+            doc.text('• D (Dominância): Fogo, Colérico, Competitivo, Executor', 20, 80);
+            doc.text('• I (Influência): Ar, Sanguíneo, Sociável, Persuasivo', 20, 90);
+            doc.text('• S (Estabilidade): Água, Fleumático, Sensitivo, Estabilidade', 20, 100);
+            doc.text('• C (Conformidade): Terra, Melancólico, Analítico, Conformidade', 20, 110);
+
+            // Adicionar resultado com destaque
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Perfil Predominante: ${dominant}`, 20, 130);
+            doc.setFont('helvetica', 'normal');
+
+            // Adicionar explicação resumida do perfil predominante
+            doc.setFontSize(10);
+            let profileDescription = '';
+            if (dominant === 'D') {
+                profileDescription = 'Dominância (Colérico): Líder nato, focado em resultados, direto e determinado. Excelente em tomar decisões rápidas e enfrentar desafios.';
+            } else if (dominant === 'I') {
+                profileDescription = 'Influência (Sanguíneo): Comunicativo, entusiasta e persuasivo. Motiva equipes e cria conexões com facilidade.';
+            } else if (dominant === 'S') {
+                profileDescription = 'Estabilidade (Fleumático): Calmo, leal e colaborativo. Valoriza harmonia e oferece suporte em ambientes estáveis.';
+            } else if (dominant === 'C') {
+                profileDescription = 'Conformidade (Melancólico): Analítico, detalhista e organizado. Prioriza precisão e qualidade no trabalho.';
+            }
+            doc.text(profileDescription, 20, 140, { maxWidth: 170 });
+
+            // Capturar o gráfico como imagem (maior e robusto)
+            const scoresElement = document.getElementById('scores');
+            const canvas = await html2canvas(scoresElement, { scale: 2 }); // Aumentar resolução
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 10, 150, 190, 100); // Gráfico maior e após a explicação
+
+            // Adicionar rodapé
+            doc.setFontSize(12);
+            doc.setFont('Dancing Script', 'normal');
+            doc.text('Rogério Braga - impulsoflow@gmail.com', 150, 290, { align: 'right' });
+
+            // Salvar o PDF
+            const pdfBlob = doc.output('blob');
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = `resultado_disc_${name}.pdf`;
+            link.click();
+
+            // Enviar o PDF por email via EmailJS
+            const reader = new FileReader();
+            reader.readAsDataURL(pdfBlob);
+            reader.onloadend = function () {
+                const base64data = reader.result.split(',')[1];
+                const emailParams = {
+                    to_email: 'impulsoflow@gmail.com',
+                    from_name: name,
+                    from_email: email,
+                    message: `Resultado do teste DISC de ${name}`,
+                    attachment: base64data,
+                    attachment_name: `resultado_disc_${name}.pdf`
+                };
+
+                console.log('Tentando enviar email com os parâmetros:', emailParams);
+
+                emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', emailParams)
+                    .then(
+                        () => {
+                            alert('Resultado enviado com sucesso para impulsoflow@gmail.com!');
+                            console.log('Email enviado com sucesso.');
+                        },
+                        (error) => {
+                            console.error('Erro ao enviar email:', error);
+                            alert('Erro ao enviar o email: ' + error.text + '. O PDF foi baixado localmente. Por favor, envie-o manualmente para impulsoflow@gmail.com.');
+                        }
+                    );
+            };
+        }
+
+        document.querySelectorAll('.adjective').forEach(adj => {
+            adj.addEventListener('click', (e) => {
+                const radio = adj.querySelector('input');
+                if (radio) {
+                    radio.checked = true;
+                    const qNum = parseInt(radio.name.match(/\d+/)[0]);
+                    updateSelection(qNum);
+                }
+            });
+        });
+
+        updateSelection(1);
+    </script>
+</body>
+</html>
